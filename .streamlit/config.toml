@@ -1,0 +1,34 @@
+# Theme values are copied from the design system (design/tokens.json, light theme).
+# tests/test_design.py fails if a value here drifts from its token.
+[theme]
+base = "light"
+primaryColor = "#2f2f27"               # bg-inverse: a selected segment or toggle is dark
+backgroundColor = "#fafaf8"            # bg-secondary: the app canvas
+secondaryBackgroundColor = "#fdfdfc"   # bg-control
+textColor = "#1c1c18"                  # text-primary
+linkColor = "#2b5782"                  # text-link
+borderColor = "#1c1c1814"              # border-default
+baseRadius = "8px"                     # radius-sm
+baseFontSize = 13                      # ui-body-sm
+font = "Inter Variable, Inter, system-ui, sans-serif"
+codeFont = "Roboto Mono, ui-monospace, monospace"
+headingFontWeights = 450
+
+[[theme.fontFaces]]
+family = "Inter Variable"
+url = "app/static/InterVariable-latin.woff2"
+weight = "100 900"
+
+[[theme.fontFaces]]
+family = "Roboto Mono"
+url = "app/static/RobotoMono-latin.woff2"
+weight = "100 700"
+
+[server]
+enableStaticServing = true
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
