@@ -1,0 +1,189 @@
+/* streamlit.css
+   Maps Streamlit's own page structure and widgets to the kit's tokens, so that the native
+   controls sit beside the kit's components (bundle.css). Every value is a token from
+   tokens.css. The selectors are Streamlit test ids; Streamlit is pinned in requirements.txt. */
+
+:root { --kit-banner-h: 28px; }
+
+/* ------------------------------------------------------------ app frame */
+[data-testid="stApp"] { top: var(--kit-banner-h); background: var(--bg-secondary); color: var(--text-primary); }
+/* Streamlit sizes these to the whole window; the banner takes 28px of it */
+[data-testid="stAppViewContainer"] > div:has(> [data-testid="stMain"]), [data-testid="stMain"] { height: 100% !important; }
+[data-testid="stElementToolbar"] { display: none; }
+[data-testid="stElementContainer"]:has(.kit-fixed) { position: absolute; width: 0; height: 0; overflow: visible; }
+.kit-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 1000002; height: var(--kit-banner-h); }
+
+/* the 48px top bar: Streamlit's header is the surface, and this is its content */
+[data-testid="stHeader"] { height: var(--topbar-h); min-height: var(--topbar-h); border-bottom: 1px solid var(--border-default); background: var(--bg-primary); }
+.kit-topbar { position: fixed; top: var(--kit-banner-h); left: 56px; z-index: 999992; display: flex; align-items: center; gap: var(--space-md); height: var(--topbar-h); color: var(--text-secondary); font: 400 13px/20px var(--font-sans); white-space: nowrap; pointer-events: none; }
+[data-testid="stApp"]:has([data-testid="stSidebar"][data-collapsed="false"]) .kit-topbar { left: calc(var(--sidebar-w) + var(--space-xxl)); }
+.kit-topbar__lead { display: inline-flex; align-items: center; height: var(--badge-h); padding: var(--space-xxs) var(--space-sm); border-radius: var(--radius-md); background: var(--alpha-3); color: var(--sand-80); font: 450 12px/16px var(--font-sans); }
+
+[data-testid="stMainBlockContainer"] { max-width: calc(var(--modal-xl) + 2 * var(--space-xxl)); margin-left: 0; padding: calc(var(--topbar-h) + var(--space-xxl)) var(--space-xxl) var(--space-xxxl); }
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] { gap: var(--space-lg); }
+[data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"] { gap: var(--space-lg); }
+[data-testid="stMainBlockContainer"] .st-key-filterbar [data-testid="stHorizontalBlock"] { gap: var(--space-sm); }
+@media (min-width: 761px) {
+  [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]) { flex-wrap: nowrap; }
+  [data-testid="stMainBlockContainer"] [data-testid="stColumn"] { min-width: 0; }
+}
+
+/* the 240px sidebar */
+[data-testid="stSidebar"] { border-right: 1px solid var(--border-default); background: var(--bg-primary); }
+[data-testid="stSidebar"][data-collapsed="false"] { width: var(--sidebar-w) !important; min-width: var(--sidebar-w) !important; max-width: var(--sidebar-w) !important; }
+[data-testid="stSidebarResizeHandle"] { display: none; }
+/* the collapse and expand buttons take the kit's icon set */
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"], [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] { width: var(--icon-md); height: var(--icon-md); overflow: hidden; background: currentColor; color: var(--icon-secondary); font-size: 0 !important; -webkit-mask: var(--kit-i) center / var(--icon-md) no-repeat; mask: var(--kit-i) center / var(--icon-md) no-repeat; }
+[data-testid="stSidebarContent"] { padding: 0; }
+[data-testid="stSidebarHeader"] { height: var(--topbar-h); margin: 0; padding: 0 var(--space-sm) 0 var(--space-lg); align-items: center; }
+[data-testid="stSidebarHeader"]::before { flex: 1; min-width: 0; white-space: nowrap; padding-left: 28px; color: var(--text-primary); font: 450 15px/24px var(--font-sans); background-repeat: no-repeat; background-position: left center; background-size: 20px 20px; }
+[data-testid="stSidebarUserContent"] { padding: 0 var(--space-sm) var(--space-md); }
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] { gap: var(--space-xxs); }
+
+/* navigation links take the kit's nav look */
+[data-testid="stSidebar"] [data-testid="stPageLink"] { width: 100%; }
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] { box-sizing: border-box; display: flex; align-items: center; gap: var(--space-sm); width: 100%; height: var(--control-md); margin: 0; padding: 0 var(--space-sm); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); text-decoration: none; transition: background-color .12s ease-in-out; }
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover { background: var(--bg-hover); }
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: -1px; }
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] p { margin: 0; color: inherit; font: 400 13px/20px var(--font-sans); }
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]::before { content: ""; flex: none; width: var(--icon-md); height: var(--icon-md); background: var(--icon-secondary); -webkit-mask: var(--kit-nav-icon) center / var(--icon-md) var(--icon-md) no-repeat; mask: var(--kit-nav-icon) center / var(--icon-md) var(--icon-md) no-repeat; }
+.kit-navgroup { margin: var(--space-md) 0 0; padding: var(--space-xxs) var(--space-sm); color: var(--text-tertiary); font: 450 12px/18px var(--font-sans); }
+.kit-sidenote { margin: var(--space-xl) 0 0; padding: 0 var(--space-sm); color: var(--text-tertiary); font: 400 12px/18px var(--font-sans); }
+
+/* ------------------------------------------------------------ type */
+[data-testid="stApp"] strong, [data-testid="stApp"] b { font-weight: 550; }
+[data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li { font: 400 13px/20px var(--font-sans); }
+[data-testid="stWidgetLabel"] p { color: var(--text-primary); font: 450 13px/20px var(--font-sans); }
+.cs-pagehead { margin-bottom: 0; }
+.cs-pagehead__sub { max-width: 820px; }
+.st-key-pagehead { flex-wrap: nowrap !important; align-items: flex-end; }
+.st-key-pagehead > [data-testid="stElementContainer"]:first-child { flex: 1 1 auto; min-width: 0; }
+.st-key-pagehead > [data-testid="stElementContainer"]:not(:first-child) { flex: 0 0 auto; padding-bottom: var(--space-xxs); }
+.cs-note { margin: 0; }
+.cs-grid + .cs-note, .cs-table-wrap + .cs-note { margin-top: var(--space-sm); }
+.kit-sectionhead { margin: var(--space-sm) 0 var(--space-md); }
+.kit-sectionhead:only-child { margin-bottom: 0; }
+.kit-section { margin: 0; color: var(--text-primary); font: 450 20px/28px var(--font-sans); }
+.kit-section__sub { max-width: 860px; margin: var(--space-xxs) 0 0; color: var(--text-secondary); font: 400 13px/20px var(--font-sans); }
+.kit-read { max-width: 760px; margin: 0 0 var(--space-sm); color: var(--text-primary); font: 400 15px/24px var(--font-sans); }
+.kit-read:last-child { margin-bottom: 0; }
+.kit-list { max-width: 760px; margin: 0 0 var(--space-sm); padding-left: var(--space-xl); color: var(--text-primary); font: 400 15px/24px var(--font-sans); }
+.kit-list li { margin-bottom: var(--space-sm); padding-left: var(--space-xs); }
+.kit-list li:last-child { margin-bottom: 0; }
+.kit-list code { font: 400 13px/20px var(--font-mono); }
+.kit-verdict { margin: 0 0 var(--space-sm); font: 450 20px/28px var(--font-sans); }
+
+/* ------------------------------------------------------------ layout */
+.cs-grid--1 { grid-template-columns: minmax(0, 1fr); }
+.kit-grid--lead { grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr); }
+.kit-grid--wide-left { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.kit-grid--inner { column-gap: var(--space-xxxl); align-items: start; }
+.kit-grid--trust { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kit-trust { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+.kit-trust p { margin: 0; font: 400 13px/20px var(--font-sans); }
+@media (max-width: 1180px) {
+  .cs-grid--4, .kit-grid--trust { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kit-grid--lead, .kit-grid--wide-left, .kit-grid--inner { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .cs-grid--4, .cs-grid--3, .cs-grid--2, .kit-grid--trust { grid-template-columns: minmax(0, 1fr); }
+  .cs-proto__by, .kit-topbar__text { display: none; }
+  .st-key-pagehead { flex-wrap: wrap !important; }
+}
+
+/* a card that holds a Streamlit chart: the same frame as the kit's cs-chart */
+[class*="st-key-card-"] { padding: var(--space-lg) !important; border: 1px solid var(--border-default) !important; border-radius: var(--radius-md) !important; background: var(--bg-primary); gap: var(--space-md) !important; }
+/* cards in one row are the same height */
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] { height: 100%; }
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:last-child:has(> [class*="st-key-card-"]) { display: flex; flex: 1 1 auto; flex-direction: column; }
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:last-child > [class*="st-key-card-"] { flex: 1 1 auto; }
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:last-child:has(.cs-chart, .cs-metric) { flex: 1 1 auto; }
+[data-testid="stColumn"] [data-testid="stHtml"]:has(> .cs-chart, > .cs-grid) { height: 100%; }
+.cs-chart, .cs-card { height: 100%; }
+.cs-chart > .cs-note:last-child, [class*="st-key-card-"] > [data-testid="stElementContainer"]:last-child:has(.cs-note) { margin-top: auto; }
+
+/* ------------------------------------------------------------ kit components, small additions */
+.kit-icon { display: inline-block; background: currentColor; -webkit-mask: var(--kit-i) center / contain no-repeat; mask: var(--kit-i) center / contain no-repeat; }
+.cs-metric__spark.kit-spark { height: auto; margin-top: auto; padding-top: var(--space-sm); }
+.kit-spark__plot { position: relative; display: block; height: 32px; }
+.kit-spark__plot > img { display: block; width: 100%; height: 100%; }
+.kit-spark__dot { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--viz-emphasis); box-shadow: 0 0 0 2px var(--bg-primary); }
+.cs-metric__unit.kit-unit--word { margin-left: 6px; }
+.kit-metric__detail { margin: 0; color: var(--text-tertiary); font: 400 12px/18px var(--font-sans); }
+.cs-alert__title { display: block; font-weight: 550; }
+.kit-alert-list { display: flex; flex-direction: column; gap: var(--space-xxs); margin: var(--space-xxs) 0 var(--space-xs); padding: 0; list-style: none; }
+.kit-alert-list li { display: flex; align-items: flex-start; gap: var(--space-sm); }
+.kit-alert-list .cs-icon { margin-top: 2px; }
+.kit-alert-foot { margin-top: var(--space-xs); font: 400 12px/18px var(--font-sans); opacity: .85; }
+
+.cs-meterlist { min-width: 0; }
+.kit-meter-head { color: var(--text-tertiary); font: 450 12px/18px var(--font-sans); }
+.kit-meter-head.cs-num { text-align: right; }
+.kit-meter-name { min-width: 0; color: var(--text-primary); }
+.kit-meter-figure { color: var(--text-primary); font-weight: 450; text-align: right; }
+.kit-meter-extra { display: flex; justify-content: flex-end; color: var(--text-tertiary); text-align: right; }
+.kit-meter-strong { font-weight: 550; }
+.kit-meter-group { grid-column: 1 / -1; margin-top: var(--space-sm); color: var(--text-secondary); font: 450 12px/18px var(--font-sans); }
+.kit-meter-head + .kit-meter-group, .cs-meterlist > .kit-meter-group:first-child { margin-top: 0; }
+.kit-meter-note { grid-column: 1 / -1; margin-top: calc(-1 * var(--space-xs)); color: var(--text-tertiary); font: 400 12px/18px var(--font-sans); }
+.kit-segbar { width: 100%; min-width: 140px; }
+.cs-table td:has(> .kit-segbar) { min-width: 160px; }
+.cs-table td .cs-badge { vertical-align: middle; }
+.kit-tableview { max-height: 320px; overflow: auto; }
+.kit-tableview + .cs-note { margin-top: var(--space-sm); }
+.cs-table td.is-wrap { padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+.cs-legend + .cs-table-wrap, .kit-sectionhead + .cs-legend { margin-top: var(--space-sm); }
+.kit-sectionhead + .cs-legend { margin-bottom: var(--space-md); }
+.kit-heatwrap { overflow-x: auto; }
+.kit-heatwrap + .cs-scale { margin-top: var(--space-md); }
+.cs-heat { width: 100%; table-layout: fixed; }
+.cs-heat th:first-child { width: 34%; }
+.cs-heat thead th { white-space: normal; vertical-align: bottom; }
+.cs-heat td { min-width: 52px; }
+
+/* a Tooltip that opens under its info icon, on hover and on keyboard focus */
+.kit-tip { position: relative; display: inline-flex; align-items: center; color: var(--icon-tertiary); cursor: help; }
+.kit-tip:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: 1px; border-radius: var(--radius-xs); }
+.kit-tip > .cs-tooltip { display: none; position: absolute; z-index: 5; left: -10px; top: calc(100% + 8px); width: 260px; box-shadow: var(--elevation-2); white-space: normal; }
+.kit-tip > .cs-tooltip::after { left: 18px; top: -4px; bottom: auto; }
+.kit-tip:hover > .cs-tooltip, .kit-tip:focus > .cs-tooltip { display: block; }
+
+/* the data flow diagram (an SVG image: see views/method.py) */
+.kit-flow { display: block; width: 100%; height: auto; }
+
+/* ------------------------------------------------------------ native controls */
+[data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"], [data-testid="stNumberInputContainer"] { min-height: var(--control-md); border-color: var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-primary); font: 400 13px/20px var(--font-sans); transition: border-color .12s ease-in-out; }
+[data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"]:hover, [data-testid="stNumberInputContainer"]:hover { border-color: var(--border-hover); }
+[data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"]:focus-within, [data-testid="stNumberInputContainer"]:focus-within { outline: 1.2px solid var(--focus-ring); outline-offset: 1px; border-color: var(--border-strong); box-shadow: none; }
+[data-testid="stSelectbox"] input[role="combobox"] { color: inherit; font: 400 13px/20px var(--font-sans); text-overflow: ellipsis; }
+[data-testid="stSelectbox"] button[aria-label="Open"] { color: var(--icon-tertiary); }
+[data-testid="stSelectboxVirtualDropdown"] { border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-raised); box-shadow: var(--elevation-2); }
+[data-testid="stSelectboxVirtualDropdown"] [role="option"] { font: 400 13px/20px var(--font-sans); }
+[data-testid="stNumberInputField"] { font: 400 13px/20px var(--font-sans); }
+[data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primary"], [data-testid="stBaseButton-tertiary"] { box-sizing: border-box; min-height: var(--control-md); height: var(--control-md); padding: 0 11px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-control); color: var(--text-primary); transition: background-color .12s ease-in-out; }
+[data-testid="stBaseButton-secondary"] p, [data-testid="stBaseButton-primary"] p, [data-testid="stBaseButton-tertiary"] p { font: 450 13px/20px var(--font-sans); }
+[data-testid="stBaseButton-secondary"]:hover { border-color: var(--border-strong); background-image: linear-gradient(var(--alpha-3), var(--alpha-3)); color: var(--text-primary); }
+[data-testid="stBaseButton-primary"] { border-color: transparent; background: var(--action-primary); color: var(--on-action); }
+[data-testid="stBaseButton-primary"]:hover { border-color: transparent; background: var(--action-primary-hover); color: var(--on-action); }
+[data-testid="stBaseButton-primary"]:active { background: var(--action-primary-pressed); color: var(--on-action); }
+[data-testid="stBaseButton-tertiary"] { border-color: transparent; background: transparent; }
+[data-testid="stBaseButton-tertiary"]:hover { background: var(--alpha-3); color: var(--text-primary); }
+[data-testid="stBaseButton-secondary"]:focus-visible, [data-testid="stBaseButton-primary"]:focus-visible, [data-testid="stBaseButton-tertiary"]:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: 1px; box-shadow: none; }
+/* a segmented control: the selected option is dark */
+[data-testid="stButtonGroup"] [role="radiogroup"] { box-sizing: border-box; display: inline-flex; flex-wrap: nowrap; gap: var(--space-xxs); width: fit-content; padding: 1px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-control); }
+[data-testid="stButtonGroup"] button[data-variant="segmented_control"] { box-sizing: border-box; height: var(--control-sm); min-height: var(--control-sm); padding: 0 11px; border: 0; border-radius: calc(var(--radius-sm) - var(--space-xxs)); background: transparent; color: var(--text-primary); transition: background-color .12s ease-in-out; }
+[data-testid="stButtonGroup"] button[data-variant="segmented_control"] p { color: inherit; font: 450 13px/20px var(--font-sans); white-space: nowrap; }
+[data-testid="stButtonGroup"] button[data-variant="segmented_control"]:hover { background: var(--alpha-3); }
+[data-testid="stButtonGroup"] button[data-variant="segmented_control"][aria-checked="true"] { background: var(--bg-inverse); color: var(--text-inverse); }
+[data-testid="stButtonGroup"] button[data-variant="segmented_control"]:focus-visible { outline: 1px solid var(--focus-ring); outline-offset: 1px; }
+[data-testid="stExpander"] details { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-primary); }
+[data-testid="stExpander"] summary p { font: 450 13px/20px var(--font-sans); }
+
+/* chart tooltips take the kit's dark tip */
+#vg-tooltip-element.vg-tooltip { padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-sm); background: var(--bg-inverse); color: var(--text-inverse); box-shadow: var(--elevation-2); font: 400 12px/18px var(--font-sans); }
+#vg-tooltip-element.vg-tooltip td.key { color: var(--sand-30); }
+#vg-tooltip-element.vg-tooltip td.value { font-weight: 550; font-variant-numeric: tabular-nums; }
+/* Vega-Lite takes font weights in hundreds only: 500 stands for the kit's 450, and 600 for its 550 */
+[data-testid="stVegaLiteChart"] svg text[font-weight="500"] { font-weight: 450; }
+[data-testid="stVegaLiteChart"] svg text[font-weight="600"] { font-weight: 550; }
+[data-testid="stVegaLiteChart"] svg text { font-variant-numeric: tabular-nums; }
