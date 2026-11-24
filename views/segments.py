@@ -30,7 +30,7 @@ singles = pd.concat([t.rename(columns={DIMENSIONS[label]: "segment"}).assign(dim
 singles["segment"] = singles["segment"].astype(str)
 readable = singles[(singles["n"] >= mx.LOW_SAMPLE) & (singles["n"] < len(s.cur))]
 requests = float(s.cur["weight"].sum())
-unmet = float(s.cur.loc[~s.cur["usable"], "weight"].sum())
+unmet = float(s.cur.loc[~s.cur["usable"] & ~s.cur["withheld"], "weight"].sum())   # withheld is not a gap to close
 tiles = []
 if len(readable) >= 2:
     hi, lo = readable.loc[readable["yield_rate"].idxmax()], readable.loc[readable["yield_rate"].idxmin()]
@@ -44,7 +44,7 @@ if len(readable) >= 2:
     ]
 tiles.append(kit.metric("Unmet demand", ui.millions(unmet), unit="requests",
                         detail=f"{ui.pct(unmet / requests)} of {ui.millions(requests)} requests in the {s.window}, scaled from the sample",
-                        info="Customer requests that did not end with a usable contact."))
+                        info="Customer requests that did not end with a usable contact. Withheld contacts are left out: they are not a gap to close."))
 st.html(kit.grid(tiles, len(tiles)))
 
 # --------------------------------------------------------------------------
@@ -154,7 +154,7 @@ for r in pools.itertuples():
 st.html(
     kit.section("Where to point sourcing",
                 f"The largest pools of unmet demand: requests that did not end with a usable contact, {s.window}, "
-                "scaled from the sample to all requests. Illustrative data.")
+                "scaled from the sample to all requests. Withheld contacts are left out. Illustrative data.")
     + kit.legend([("Not found: buy breadth", "viz-1"), ("Not complete: buy the channel", "viz-2"),
                   ("Not correct: refresh, or fix the feed", "viz-3")])
     + kit.table(pd.DataFrame(records), num=(unmet_col, "Not found %", "Not complete %", "Not correct %", "Usable per 100"),

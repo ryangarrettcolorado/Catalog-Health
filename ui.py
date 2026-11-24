@@ -57,6 +57,33 @@ def load_scenarios() -> dict[str, float]:
     return {name: mx.scenario_gain(base, md.simulate(sc, weeks=span)) for name, sc in SCENARIOS.items()}
 
 
+@st.cache_resource(show_spinner="Running the merge again without each source")
+def load_overlap() -> pd.DataFrame:
+    """
+    For each source: its cost per net-new usable contact when its nearest overlap is gone.
+
+    Leave-one-out is valid for one removal at a time. So this removes each other source in turn
+    (a second run with the same random draws), scores the source again, and keeps the removal that
+    raises its net-new usable contacts the most. That other source is its nearest overlap.
+    """
+    span = (md.WEEKS - SCORE_WEEKS + 1, md.WEEKS)
+    base = mx.source_scorecard(md.simulate(weeks=span), md.simulate(weeks=span), 1.0).set_index("key")
+    best: dict[str, dict] = {}
+    for other in md.SOURCES:
+        run = md.simulate({"coverage_boost": {(other.key, r): 0.0 for r in md.REGIONS}}, weeks=span)
+        sc = mx.source_scorecard(run, run, 1.0).set_index("key")
+        for src in md.SOURCES:
+            if src.key == other.key:
+                continue
+            net = float(sc.loc[src.key, "net_new_usable"])
+            if src.key not in best or net > best[src.key]["net_without"]:
+                best[src.key] = dict(key=src.key, overlap=other.label, net_without=net,
+                                     cost_without=float(sc.loc[src.key, "cost_per_net_new_usable"]))
+    out = pd.DataFrame(best.values())
+    out["net_today"] = out["key"].map(base["net_new_usable"])
+    return out
+
+
 def rows_as_csv(d: pd.DataFrame) -> bytes:
     """The audited rows behind a view, with the bit masks spelled out."""
     d = d.copy()

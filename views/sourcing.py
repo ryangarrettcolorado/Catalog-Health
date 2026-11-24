@@ -24,12 +24,15 @@ c1, c2 = st.columns([1, 3], vertical_alignment="bottom")
 value = ui.sticky(c1.number_input, "Value of one usable contact, dollars", 0.05, 2.0, key="value_per_usable", default=0.20,
                   step=0.05)
 c2.html(kit.note(f"An assumption: what one usable contact in a customer's hands is worth. It sets the break-even line and the calls. "
+                 "In production, anchor it to the price of a credit, the refund cost of a bad contact, or revenue for each delivered contact. "
                  f"All segments, last {ui.SCORE_WEEKS} weeks to {ui.DATA_DATE}, scaled to a year. Contract costs cover the whole "
                  "catalog, so this page has no segment filters. Illustrative data."))
 
 df = ui.load_data()[0]
 d26, recent = mx.window(df, ui.SCORE_WEEKS), mx.window(df, 4)
 sc = mx.source_scorecard(d26, recent, value).sort_values("cost_per_net_new_usable").reset_index(drop=True)
+overlap = ui.load_overlap().set_index("key")
+flips = mx.call_flips(d26, recent, value)
 spend = float(sc["annual_cost"].sum())
 best, worst = sc.iloc[0], sc.iloc[-1]
 no_backup = mx.single_source_share(d26)
@@ -38,10 +41,11 @@ st.html(kit.grid([
     kit.metric("Source spend", f"${spend / 1e6:.2f}M", unit="a year", detail=f"{len(sc)} sources, contract and run cost",
                change=kit.trust_badge("Counted")),
     kit.metric("Lowest cost per net-new usable", ui.dollars(best["cost_per_net_new_usable"]),
-               detail=f"{best['source']} · {ui.millions(best['net_new_usable'])} net-new usable a year",
+               detail=f"{best['source']} · {ui.millions(best['net_new_usable'])} net-new usable deliveries a year",
                change=kit.trust_badge("Audited"), info=ui.definition("Cost per net-new usable contact")),
     kit.metric("Highest cost per net-new usable", ui.dollars(worst["cost_per_net_new_usable"]),
-               detail=f"{worst['source']} · {ui.millions(worst['net_new_usable'])} net-new usable a year",
+               detail=f"{worst['source']} · {ui.millions(worst['net_new_usable'])} net-new usable deliveries a year · "
+                      f"95% range {ui.dollars(worst['cost_low'])} to {ui.dollars(worst['cost_high'])}",
                change=kit.trust_badge("Audited")),
     kit.metric("No backup source", ui.rate(no_backup, 0), unit="%", change=kit.trust_badge("Audited"),
                detail="of usable contacts stop being usable if one particular source goes away"),
@@ -83,6 +87,13 @@ with right:
 # The detail table: the scorecard
 # --------------------------------------------------------------------------
 accuracy_col = "Accuracy when it wins, %"
+overlap_col = "$ without its nearest overlap"
+
+
+def flip_text(f: dict) -> str:
+    if not f["changed"]:
+        return f"At ${f['value']:.2f}: no call changes."
+    return f"At ${f['value']:.2f}: " + "; ".join(f"{name.split(' (')[0]} moves from {a} to {b}" for name, a, b in f["changed"]) + "."
 records, marks = [], {}
 for i, r in enumerate(sc.itertuples()):
     tone, icon_name = CALL_BADGES.get(r.call, ("", ""))
@@ -93,17 +104,28 @@ for i, r in enumerate(sc.itertuples()):
     records.append({
         "Source": kit.entity(r.source, f"{r.kind} · ${r.annual_cost / 1e6:.2f}M a year · ${r.cost_per_record:.3f} a record"),
         "Call": kit.badge(r.call, tone, icon_name),
-        "$ per net-new usable": ui.dollars(r.cost_per_net_new_usable).lstrip("$"),
-        "Net-new usable, M a year": f"{r.net_new_usable / 1e6:.1f}",
-        "Adds, M": f"{r.helps / 1e6:.1f}",
-        "Breaks, M": f"{r.harms / 1e6:.1f}",
+        "$ per net-new usable": kit.entity(ui.dollars(r.cost_per_net_new_usable).lstrip("$"),
+                                           f"{ui.dollars(r.cost_low).lstrip('$')} to {ui.dollars(r.cost_high).lstrip('$')}"),
+        overlap_col: kit.entity(ui.dollars(overlap.loc[r.key, "cost_without"]).lstrip("$"),
+                                "without " + overlap.loc[r.key, "overlap"].split(" (")[0]),
+        "Net-new usable, M a year": kit.entity(f"{r.net_new_usable / 1e6:.1f}",
+                                               f"adds {r.helps / 1e6:.1f}, breaks {r.harms / 1e6:.1f}"),
         accuracy_col: accuracy})
-numeric = ("$ per net-new usable", "Net-new usable, M a year", "Adds, M", "Breaks, M", accuracy_col)
+numeric = ("$ per net-new usable", overlap_col, "Net-new usable, M a year", accuracy_col)
+d_row = sc[sc["key"] == "vendor_d"].iloc[0]
 st.html(
-    kit.section("Source scorecard", f"Last {ui.SCORE_WEEKS} weeks, scaled to a year. One delivery counts once, so a contact "
-                                    "that customers ask for often counts more. Illustrative data.")
-    + kit.table(pd.DataFrame(records), num=numeric, raw=("Source", "Call", accuracy_col), size="relaxed", marks=marks,
+    kit.section("Source scorecard", f"Last {ui.SCORE_WEEKS} weeks, scaled to a year. The unit is a delivery, not a distinct "
+                                    "person: a contact that customers ask for often counts more. Illustrative data.")
+    + kit.table(pd.DataFrame(records), num=numeric, raw=("Source", "Call", accuracy_col, overlap_col, "$ per net-new usable", "Net-new usable, M a year"), size="relaxed", marks=marks,
                 label="Source scorecard")
+    + kit.note("Three limits of the call. 1. It holds for one removal at a time. “Without its nearest overlap” removes the one "
+               "other source that hides most of this source's value, and runs the merge again. "
+               f"{d_row['source'].split(' (')[0]} costs {ui.dollars(d_row['cost_per_net_new_usable'])} today and "
+               f"{ui.dollars(overlap.loc['vendor_d', 'cost_without'])} without {overlap.loc['vendor_d', 'overlap'].split(' (')[0]}, "
+               "so it is the alternative in that renewal: renegotiate first, then decide. "
+               f"2. It comes from a sample. The small line under each cost is its 95% range. The range for {d_row['source'].split(' (')[0]} rests on {int(d_row['sample_rows'])} net "
+               "sampled rows; a call whose range crosses a line needs a second look. "
+               f"3. It follows the assumed value. {flip_text(flips[0])} {flip_text(flips[1])}")
     + kit.note("Net-new usable = adds minus breaks. Adds: usable contacts that would not be usable without the source. Breaks: "
                "contacts that would be usable if the source were removed, because its wrong or stale record wins the merge. "
                f"Accuracy: audited employer and role on the records that the source wins. The call follows a fixed rule: expand at half "

@@ -52,7 +52,9 @@ DEFINITIONS = [
                     "complete, and correct."),
         measured_from="Request logs plus the weekly audit sample.",
         trust="Audited",
-        blind_spot="Search has no outside denominator, so the Found step uses requests that name a person.",
+        blind_spot=("Search has no outside denominator, so the Found step uses requests that name a person. "
+                    "The yield cannot fall when a field is filled with a wrong value, so read it with its "
+                    "guardrail: wrong contacts delivered per 100 requests."),
     ),
     dict(
         pillar="Breadth", metric="Found rate",
@@ -60,9 +62,12 @@ DEFINITIONS = [
         definition=("Requests that match one servable catalog contact ÷ valid requests. Valid: the request "
                     "names a person (name and company domain, business email, or profile URL). Servable: "
                     "not withheld for opt-out, deletion, or licence limits."),
-        measured_from="Request logs. Every request is counted; no sample is needed.",
+        measured_from=("Request logs. In production every request is counted and no sample is needed. "
+                       "This prototype counts it on the audit sample."),
         trust="Counted",
-        blind_spot=("The customer's own input can be out of date. Withheld contacts count as not found and "
+        blind_spot=("It applies to requests that name a person: enrichment, CSV and API. A reveal from "
+                    "search is found by construction, so search coverage needs an outside reference panel. "
+                    "The customer's own input can be out of date. Withheld contacts count as not found and "
                     "are reported apart, because they are not a gap to close."),
     ),
     dict(
@@ -84,7 +89,10 @@ DEFINITIONS = [
                        "that supplied the record."),
         trust="Audited",
         blind_spot=("The audit runs about 7 days behind. Auditors make errors too, so 5% of rows get a "
-                    "second audit to measure that."),
+                    "second audit to measure that; this prototype does not model that error. Employer and "
+                    "role are confirmed from public primary sources. A phone number cannot be fully "
+                    "confirmed without contact with the person, so the phone channel rests on line-type "
+                    "checks and consented connect outcomes, and it is less certain than email."),
     ),
     dict(
         pillar="Freshness", metric="Verified in 90 days",
@@ -92,16 +100,20 @@ DEFINITIONS = [
         definition=("Found contacts with an independent observation of employer or channel in the last 90 "
                     "days ÷ found contacts. Independent observation: a reply, a delivered email on a "
                     "domain that is not catch-all, a contributor sighting, a new crawl of a primary page, "
-                    "or a completed call. A re-load of the same file does not count."),
-        measured_from="The observation log on each record.",
+                    "or a completed call. A re-load of the same file does not count. That is the target. "
+                    "This prototype reads the newest stamp or signal on the winning record, so it is "
+                    "stamp-based: a re-stamped feed does count here."),
+        measured_from="The observation log on each record. In this prototype: the newest stamp or signal.",
         trust="Counted",
         blind_spot=("A feed that re-stamps old rows looks fresh. Freshness that goes up while accuracy "
-                    "goes down is the warning sign."),
+                    "goes down is the warning sign, and the feed gate is what closes the gap. 90 days is "
+                    "a convention, not a measured break. That freshness leads accuracy in time is a "
+                    "hypothesis: the dashboard shows accuracy by age, not a lagged test."),
     ),
     dict(
         pillar="Freshness", metric="Job-change catch rate (90 days)",
-        short="Of audited contacts who changed employer in the last 90 days, the share where the catalog shows the new employer.",
-        definition=("Among audited contacts who changed employer in the last 90 days, the share where the "
+        short="Of found contacts in the audit sample who changed employer in the last 90 days, the share where the catalog shows the new employer.",
+        definition=("Among found contacts in the audit sample who changed employer in the last 90 days, the share where the "
                     "catalog already shows the new employer."),
         measured_from="The audit sample. The auditor records the job start date. 13-week window.",
         trust="Audited",
@@ -118,7 +130,10 @@ DEFINITIONS = [
         measured_from="The audit sample, a replay of the merge, and contract costs. Last 26 weeks, annualised.",
         trust="Audited",
         blind_spot=("It is the average for the contract we have. The next dollar can be worth more or "
-                    "less; the Investments page estimates that."),
+                    "less; the Investments page estimates that. It is valid for one removal at a time: a "
+                    "source that overlaps another is worth more when that other source goes, so the "
+                    "Sourcing page also shows the cost with the nearest overlap removed. It counts "
+                    "deliveries, not distinct people, and it comes from a sample, so it has a 95% range."),
     ),
     dict(
         pillar="Guardrail", metric="Withheld share",
@@ -226,9 +241,14 @@ class Funnel:
     def yield_rate(self) -> float:      # Headline = found_rate x complete_rate x correct_rate
         return self.usable / self.n if self.n else float("nan")
 
+    @property
+    def wrong_rate(self) -> float:      # Guardrail: complete contacts that are delivered and wrong, per request
+        return (self.complete - self.usable) / self.n if self.n else float("nan")
+
     def pair(self, metric: str) -> tuple[int, int]:
         """(numerator, denominator) for a metric name."""
         return {
+            "wrong_rate": (self.complete - self.usable, self.n),
             "yield_rate": (self.usable, self.n),
             "found_rate": (self.found, self.n),
             "complete_rate": (self.complete, self.found),
@@ -252,7 +272,24 @@ METRIC_LABELS = {
     "complete_rate": "Complete (depth)",
     "correct_rate": "Correct (accuracy)",
     "fresh_rate": "Verified in 90 days (freshness)",
+    "wrong_rate": "Wrong contacts delivered",
 }
+
+
+def verdict(yield_change: dict, wrong_change: dict, base_phrase: str) -> str:
+    """
+    The one-line answer. Yield cannot fall when a field is filled with a wrong value, so a rise in
+    yield only reads as "Better" when wrong contacts delivered did not also rise beyond noise.
+    """
+    more_wrong = wrong_change["z"] >= Z95
+    if yield_change["z"] >= Z95:
+        return (f"Mixed: more usable contacts and more wrong ones than {base_phrase}." if more_wrong
+                else f"Better than {base_phrase}.")
+    if yield_change["z"] <= -Z95:
+        return f"Worse than {base_phrase}."
+    if more_wrong:
+        return f"Worse: no more usable contacts and more wrong ones than {base_phrase}."
+    return f"No clear change from {base_phrase}."
 
 
 def change(cur: Funnel, base: Funnel, metric: str) -> dict:
@@ -337,7 +374,7 @@ def segment_table(d: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
     fresh = d["found"] & (d["verification_age_months"] <= FRESH_MONTHS)
     g = (d.assign(fresh=fresh).groupby(dims, observed=False)
          .agg(n=("usable", "size"), found=("found", "sum"), complete=("complete", "sum"),
-              usable=("usable", "sum"), fresh=("fresh", "sum"))
+              usable=("usable", "sum"), fresh=("fresh", "sum"), withheld=("withheld", "sum"))
          .reset_index())
     with np.errstate(divide="ignore", invalid="ignore"):
         g["yield_rate"] = g["usable"] / g["n"]
@@ -350,8 +387,9 @@ def segment_table(d: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
     # Requests that did not end with a usable contact, scaled to all customer requests.
     weeks = max(d["week"].nunique(), 1)
     per_4_weeks = md.WEIGHT * 4 / weeks
-    g["unmet_requests"] = (g["n"] - g["usable"]) * per_4_weeks
-    g["lost_not_found"] = (g["n"] - g["found"]) * per_4_weeks
+    # Withheld contacts are not a gap to close, so they are not unmet demand.
+    g["unmet_requests"] = (g["n"] - g["usable"] - g["withheld"]) * per_4_weeks
+    g["lost_not_found"] = (g["n"] - g["found"] - g["withheld"]) * per_4_weeks
     g["lost_not_complete"] = (g["found"] - g["complete"]) * per_4_weeks
     g["lost_not_correct"] = (g["complete"] - g["usable"]) * per_4_weeks
     return g
@@ -488,6 +526,13 @@ def source_scorecard(d: pd.DataFrame, recent: pd.DataFrame, value_per_usable: fl
         k, n = source_accuracy(d, src.key)
         k4, n4 = source_accuracy(recent, src.key)
         cost_per_net = src.annual_cost / net if net > 0 else float("inf")
+        # 95% range. Net-new is (rows it helps - rows it harms) in a sample; the two counts are
+        # close to independent Poisson counts, so the standard error of the difference is sqrt(sum).
+        rows_net = (helps - harms) / per_year
+        spread = Z95 * sqrt((helps + harms) / per_year)
+        net_low, net_high = (rows_net - spread) * per_year, (rows_net + spread) * per_year
+        cost_low = src.annual_cost / net_high if net_high > 0 else float("inf")
+        cost_high = src.annual_cost / net_low if net_low > 0 else float("inf")
         acc4 = k4 / n4 if n4 else float("nan")
         if n4 >= 50 and acc4 < ACCURACY_FLOOR:
             call = "Fix the feed first"
@@ -506,11 +551,23 @@ def source_scorecard(d: pd.DataFrame, recent: pd.DataFrame, value_per_usable: fl
             present_in_usable=(has & d["usable"]).sum() / usable_total if usable_total else float("nan"),
             helps=helps, harms=harms, net_new_usable=net,
             accuracy=k / n if n else float("nan"), accuracy_recent=acc4,
-            cost_per_net_new_usable=cost_per_net, call=call,
+            cost_per_net_new_usable=cost_per_net, cost_low=cost_low, cost_high=cost_high,
+            sample_rows=int(round(rows_net)), call=call,
         ))
     out = pd.DataFrame(rows)
     out["rank_per_record"] = out["cost_per_record"].rank(method="first").astype(int)
     out["rank_per_usable"] = out["cost_per_net_new_usable"].rank(method="first").astype(int)
+    return out
+
+
+def call_flips(d: pd.DataFrame, recent: pd.DataFrame, value_per_usable: float, factors=(0.5, 1.5)) -> list[dict]:
+    """Which calls change when the assumed value of a usable contact is lower or higher?"""
+    now = source_scorecard(d, recent, value_per_usable).set_index("key")["call"]
+    out = []
+    for f in factors:
+        other = source_scorecard(d, recent, value_per_usable * f).set_index("key")
+        changed = [(other.loc[k, "source"], now[k], other.loc[k, "call"]) for k in now.index if other.loc[k, "call"] != now[k]]
+        out.append(dict(value=value_per_usable * f, changed=changed))
     return out
 
 

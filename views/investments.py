@@ -8,6 +8,7 @@ import streamlit as st
 import charts as ch
 import kit
 import metrics as mx
+import mockdata as md
 import ui
 
 ui.page_head("Where does the next data dollar go?",
@@ -41,6 +42,10 @@ sc = mx.source_scorecard(d26, recent, value)
 vd = sc[sc["key"] == "vendor_d"].iloc[0]
 va = sc[sc["key"] == "vendor_a"].iloc[0]
 incident_m = gains["no_incident"] / 1e6 * ui.SCORE_WEEKS / 52      # usable contacts lost so far, millions
+ov_d = ui.load_overlap().set_index("key").loc["vendor_d"]
+by_region = mx.segment_table(recent, ["region"]).set_index("region")["unmet_requests"]
+emea_rank = int(by_region.rank(ascending=False)["EMEA"])
+emea_place = {1: "the largest", 2: "the second-largest", 3: "the third-largest"}.get(emea_rank, "a large")
 
 rows = [dict(name=f"Refresh each quarter: {t.tier.lower()} of requested contacts", kind="Refresh existing records",
              basis="Assumption", net=t.net_new_usable, annual_cost=t.annual_cost) for t in tiers.itertuples()]
@@ -68,8 +73,9 @@ st.html(kit.grid([
                change=kit.trust_badge(largest["basis"])),
     kit.metric("Lost to the open incident", f"{incident_m:.2f}M", unit="in 4 weeks",
                detail="Usable contacts. Vendor C re-stamped its APAC feed.", change=kit.trust_badge("Modeled")),
-    kit.metric("Savings on the table", f"${vd['annual_cost'] / 1e6:.2f}M", unit="a year",
-               detail=f"Cut Vendor D. Customers lose {ui.millions(vd['net_new_usable'])} usable contacts a year.",
+    kit.metric("Vendor D: decide after Vendor A", f"${vd['annual_cost'] / 1e6:.2f}M", unit="a year",
+               detail=f"{ui.dollars(vd['cost_per_net_new_usable'])} per net-new usable contact today, "
+                      f"{ui.dollars(ov_d['cost_without'])} without {ov_d['overlap'].split(' (')[0]}.",
                change=kit.trust_badge("Audited")),
 ], 4))
 
@@ -78,21 +84,29 @@ st.html(kit.grid([
 # --------------------------------------------------------------------------
 e = kit.esc
 next_five = kit.bullets([
+    f"<strong>This week: gate every feed load with the audit before it can win the merge</strong> (${cost_gate:.2f}M a year). "
+    f"The Vendor C incident is open now. It has cost {incident_m:.2f}M usable contacts in 4 weeks, and it made APAC look "
+    "fresher while it did so. This is incident response first, and an investment second.",
     f"<strong>Keep the blind audit running</strong> (${cost_audit:.2f}M a year). It is the only honest accuracy number in this "
     "prototype. Every item below depends on it.",
     f"<strong>Refresh by demand rank, the top 5% first.</strong> {ui.millions(top.net_new_usable)} net-new usable contacts a year "
     f"at {ui.dollars(top.cost_per_net_new_usable)} each. Stop where the cost crosses the best source.",
-    f"<strong>Expand Vendor B in EMEA.</strong> Phone requests in EMEA are the largest pool of unmet demand with a proven source: "
+    f"<strong>Expand Vendor B in EMEA.</strong> EMEA is {emea_place} region of unmet demand "
+    f"({ui.millions(by_region['EMEA'])} requests in 4 weeks, email and phone), and Vendor B is a proven source there: "
     f"{ui.millions(gains['vendor_b'])} more usable contacts a year. Pay up to ${gains['vendor_b'] * value / 1e6:.2f}M.",
     f"<strong>Grow the contributor network outside North America.</strong> It is the cheapest and freshest source, and most of "
     f"its value is still in one region: {ui.millions(gains['contributor'])} more usable contacts a year.",
-    f"<strong>Gate every feed load with the audit before it can win the merge</strong> (${cost_gate:.2f}M a year). The open "
-    f"Vendor C incident has cost {incident_m:.2f}M usable contacts in 4 weeks, and it made APAC look fresher while it did so.",
 ], ordered=True)
+new_spend = (top.annual_cost + (cost_b + cost_c + cost_gate) * 1e6) / 1e6
 pay = kit.read(
-    f"<strong>Pay for it.</strong> Cut Vendor D: it saves ${vd['annual_cost'] / 1e6:.2f}M, and customers lose "
-    f"{ui.millions(vd['net_new_usable'])} usable contacts a year at {e(ui.dollars(vd['cost_per_net_new_usable']))} each. "
-    f"Tie the renewal of Vendor A to accuracy: when its record wins the merge, it is right {100 * va['accuracy']:.0f}% of the time.")
+    f"<strong>Pay for it.</strong> New spend is ${new_spend:.2f}M a year, plus the audit at ${cost_audit:.2f}M. Vendor D "
+    f"costs ${vd['annual_cost'] / 1e6:.2f}M for {ui.millions(vd['net_new_usable'])} usable contacts a year, at "
+    f"{e(ui.dollars(vd['cost_per_net_new_usable']))} each (95% range {e(ui.dollars(vd['cost_low']))} to "
+    f"{e(ui.dollars(vd['cost_high']))}). But without {e(ov_d['overlap'].split(' (')[0])} it costs "
+    f"{e(ui.dollars(ov_d['cost_without']))}, so it is the alternative in that renewal. The order: renegotiate Vendor A on "
+    f"accuracy first (when its record wins the merge, it is right {100 * va['accuracy']:.0f}% of the time), then decide "
+    f"Vendor D. Until then the net ask is ${new_spend + cost_audit:.2f}M; a cut of Vendor D would lower it to "
+    f"${new_spend + cost_audit - vd['annual_cost'] / 1e6:.2f}M.")
 said_no = kit.bullets([
     "<strong>A composite health score.</strong> A weighted index hides the tradeoff between pillars, and nobody can act on “82”.",
     "<strong>Catalog size as a KPI.</strong> It goes up when a file is loaded.",
@@ -106,6 +120,12 @@ st.html(kit.grid([kit.text_card("The next five investments, in order", next_five
 # --------------------------------------------------------------------------
 # The evidence
 # --------------------------------------------------------------------------
+coverage = inv[inv["kind"] == "Buy or build coverage"].iloc[0]
+winning = [t.tier.lower() for t in tiers.itertuples() if t.cost_per_net_new_usable < coverage["cost"]]
+refresh_note = ("Refresh pays only at the head of demand. " + (
+    f"It beats the cheapest coverage option ({coverage['name']}, {ui.dollars(coverage['cost'])}) for the "
+    f"{' and the '.join(winning)} of requested contacts only. Past that, it is cheaper to buy coverage."
+    if winning else f"No tier beats the cheapest coverage option ({coverage['name']}, {ui.dollars(coverage['cost'])})."))
 st.html(kit.section("The evidence, on one unit",
                     f"Each option against the assumed value of one usable contact, ${value:.2f}. Illustrative data."))
 ui.chart_card(
@@ -113,7 +133,7 @@ ui.chart_card(
     "Yearly cost divided by the usable contacts that the option adds in a year. A bar longer than the scale is cut at the edge. Illustrative data.",
     ch.cost_chart(inv, value, {"Refresh existing records": "viz-1", "Buy or build coverage": "viz-2"}, cap=max(1.0, 4 * value)),
     legend=kit.legend([("Refresh existing records", "viz-1"), ("Buy or build coverage", "viz-2")]),
-    note="Refresh pays only at the head of demand. Past the top 10% of requested contacts it is cheaper to buy coverage.")
+    note=refresh_note)
 
 table = pd.DataFrame({
     "Option": inv["name"],

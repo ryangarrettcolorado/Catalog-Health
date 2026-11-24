@@ -11,8 +11,9 @@ A mock telemetry dashboard for a B2B contact catalog. It answers one question fo
 - A catalog average hides the truth, so the dashboard measures what customers get.
 - **One headline: usable yield.** Of every 100 contacts customers ask for, how many are found, complete, and correct?
 - **Each pillar is one step.** Breadth = found. Depth = complete. Accuracy = correct. Freshness explains why accuracy falls.
+- **One guardrail beside the headline: wrong contacts delivered per 100 requests.** The yield cannot fall when a field is filled with a wrong value. A higher yield with more wrong contacts reads as "Mixed", not "Better".
 - **Accuracy is the hardest pillar to measure honestly.** Bounce and connect signals only cover records that customers chose to use. The dashboard uses a blind audit sample and shows the interval.
-- **One number drives sourcing: cost per net-new usable contact.** Take the source out, run the merge again, and count what customers lose.
+- **One number drives sourcing: cost per net-new usable contact.** Take the source out, run the merge again, and count what customers lose. It holds for one removal at a time, so the scorecard also shows the cost with the nearest overlap removed, and a 95% range.
 
 ## What each page answers
 
@@ -31,7 +32,7 @@ A mock telemetry dashboard for a B2B contact catalog. It answers one question fo
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 streamlit run app.py
-pytest -q          # 66 checks
+pytest -q          # see the count by kind under 'Check the numbers yourself'
 ```
 
 Tested with Python 3.13. The pinned packages need Python 3.12 or later.
@@ -104,6 +105,7 @@ Three events are built in: Vendor A's contract expands, Vendor B's pilot starts 
 
 ## Check the numbers yourself
 
+- The checks, by kind: the metric checks in `tests/test_metrics.py` (the ones that test the numbers), the page checks in `tests/test_app.py` (every page runs, every filter works), and the design checks in `tests/test_design.py`. Run `pytest --collect-only -q` for the current counts. The leave-one-out check uses the same merge code as the app, so it checks the bookkeeping, not the merge rule.
 - `pytest -q` recounts the funnel row by row, checks that the yield equals the product of the three steps, and really removes each source and runs the model again to confirm the leave-one-out numbers.
 - The Overview page has a download button for the audited rows behind the current view. Count `found`, `complete`, and `usable` in a spreadsheet; the counts must match the page.
 - Same seed, same rows, same numbers.

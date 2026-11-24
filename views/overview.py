@@ -30,12 +30,10 @@ year_shape = "over the last 12 months"
 # --------------------------------------------------------------------------
 # The answer: one hero number and one verdict
 # --------------------------------------------------------------------------
-if y["z"] >= mx.Z95:
-    verdict = f"Better than {s.base_phrase}."
-elif y["z"] <= -mx.Z95:
-    verdict = f"Worse than {s.base_phrase}."
-else:
-    verdict = f"No clear change from {s.base_phrase}."
+# Yield cannot fall when a field is filled with a wrong value. So the verdict also reads the guardrail:
+# wrong contacts delivered per 100 requests.
+w = mx.change(cur, base, "wrong_rate")
+verdict = mx.verdict(y, w, s.base_phrase)
 
 PHRASES = {
     "found": ("the catalog finds more of the contacts customers ask for", "the catalog finds fewer of the contacts customers ask for"),
@@ -52,8 +50,9 @@ if np.isfinite(mix["mix"]) and abs(100 * mix["mix"]) >= 0.3:
     direction = "lower" if mix["mix"] < 0 else "higher"
     lines.append(f"Demand moved toward segments where the yield is {direction}. With the demand mix held constant, "
                  f"the change is {100 * mix['within']:+.1f} points.")
-lines.append(f"Of every 100 complete contacts that customers receive, {100 * (1 - cur.correct_rate):.0f} are wrong. "
-             "That number costs trust.")
+lines.append(f"Wrong contacts delivered: {100 * w['before']:.1f} per 100 requests {s.base_phrase}, {100 * w['now']:.1f} now. "
+             f"Of every 100 complete contacts that customers receive, {100 * (1 - cur.correct_rate):.0f} are wrong. "
+             "A request that finds nothing costs the customer nothing. A wrong contact costs a credit, a bounce and trust.")
 
 hero = kit.metric(
     "Usable yield", f"{100 * cur.yield_rate:.1f}", unit="per 100 requests",
@@ -66,23 +65,31 @@ verdict_card = (f'<section class="cs-card"><div class="cs-card__body"><h2 class=
 st.html(kit.grid([hero, verdict_card], 2, "kit-grid--lead"))
 
 # --------------------------------------------------------------------------
-# The four pillars. A change inside its noise band is grey.
+# The three steps, the guardrail and the freshness signal. A change inside its noise band is grey.
 # --------------------------------------------------------------------------
+WRONG_INFO = ("Complete contacts that the audit does not confirm ÷ contact requests. The customer received these and "
+              "they were wrong. Audited.")
 PILLARS = [
     ("found_rate", "Found rate", f"of {cur.n:,} requests"),
     ("complete_rate", "Complete rate", f"of {cur.found:,} found contacts"),
     ("correct_rate", "Correct rate", f"of {cur.complete:,} complete contacts · ±{100 * cur.ci('correct_rate'):.1f}"),
+    ("wrong_rate", "Wrong contacts delivered", f"complete and not correct, of {cur.n:,} requests · ±{100 * cur.ci('wrong_rate'):.1f}"),
     ("fresh_rate", "Verified in 90 days", f"of {cur.found:,} found contacts"),
 ]
 tiles = []
 for metric, name, detail in PILLARS:
     c = mx.change(cur, base, metric)
+    guard = metric == "wrong_rate"
     tiles.append(kit.metric(
-        mx.METRIC_LABELS[metric], ui.rate(c["now"]), unit="%",
-        change=kit.delta_badge(100 * c["delta"], c["significant"]), period=s.period, detail=detail,
-        spark=kit.sparkline((100 * tr[metric]).tolist(), f"{name} {year_shape}"), info=ui.definition(name)))
-st.html(kit.grid(tiles, 4) + kit.note("Usable yield = found × complete × correct. Freshness explains accuracy; it is not a "
-                                      "fourth step. A grey change is inside its noise band. Each trend line covers 12 months."))
+        mx.METRIC_LABELS[metric], ui.rate(c["now"]), unit="per 100" if guard else "%",
+        change=kit.delta_badge(100 * c["delta"], c["significant"], up_is_good=not guard), period=s.period, detail=detail,
+        spark="" if guard else kit.sparkline((100 * tr[metric]).tolist(), f"{name} {year_shape}"),
+        info=WRONG_INFO if guard else ui.definition(name)))
+st.html(kit.grid(tiles, 4, "kit-grid--trust")
+        + kit.note("Usable yield = found × complete × correct. Wrong contacts delivered is the guardrail: the yield cannot fall "
+                   "when a field is filled with a wrong value, so a higher yield with more wrong contacts reads as mixed, not "
+                   "better. Freshness is stamp-based here and explains accuracy; it is not a fourth step. A grey change is "
+                   "inside its noise band. Each trend line covers 12 months."))
 
 # --------------------------------------------------------------------------
 # What needs attention. Alerts always scan every segment, whatever the filters say.
@@ -149,7 +156,7 @@ with left:
 with right:
     ui.chart_card(
         "change", "What moved the yield",
-        f"Points of usable yield from each step, {s.window} {s.period}. The three bars add up to {100 * parts['total']:+.1f}. Illustrative data.",
+        f"Points of usable yield from each step, {s.window} {s.period}. The three bars add up to the total change, {100 * parts['total']:+.1f}; each bar label is rounded. Illustrative data.",
         ch.change_chart(parts),
         table=pd.DataFrame({"Step": ["Found", "Complete", "Correct", "Total"],
                             "Points of yield": [f"{100 * parts[k]:+.2f}" for k in ("found", "complete", "correct", "total")]}),
@@ -239,7 +246,7 @@ with left:
                                "A year ago": comp["year_ago"].map("{:.1f}%".format),
                                "Change": (comp["now"] - comp["year_ago"]).map("{:+.1f} pts".format)})
     st.html(kit.figure(
-        "Companies, in brief", "The same four pillars for companies. Fixed illustrative values, not computed from the sample.",
+        "Companies, in brief", "Breadth, depth, accuracy and freshness for companies. Fixed illustrative values, not computed from the sample.",
         kit.chart_table(comp_table),
         note_text="Company telemetry is out of scope for this prototype on purpose. Contact data decays faster, and "
                   "contacts are what customers spend credits on."))

@@ -128,3 +128,50 @@ def test_the_story_the_dashboard_tells_still_holds(df, last4):
     assert sc.loc["contributor", "rank_per_usable"] == 1
     assert sc.loc["vendor_c", "call"] == "Fix the feed first"
     assert sc.loc["vendor_d", "call"] == "Cut"
+
+
+# --------------------------------------------------------------------------
+# Added after the panel dry run: the guardrail, the range, and the overlap
+# --------------------------------------------------------------------------
+def test_wrong_delivered_is_recounted_row_by_row(last4):
+    f = mx.funnel(last4)
+    by_hand = sum(1 for c, u in zip(last4["complete"], last4["usable"]) if c and not u)
+    assert f.wrong_rate == pytest.approx(by_hand / len(last4))
+    # the guardrail and the yield split the complete contacts between them
+    assert f.wrong_rate + f.yield_rate == pytest.approx(f.complete / f.n)
+
+
+def test_the_verdict_is_mixed_when_yield_and_wrong_contacts_both_rise(df, last4):
+    f, base = mx.funnel(last4), mx.funnel(mx.window(df, 4, md.WEEKS - 52))
+    y, w = mx.change(f, base, "yield_rate"), mx.change(f, base, "wrong_rate")
+    assert y["z"] >= mx.Z95 and w["z"] >= mx.Z95
+    assert mx.verdict(y, w, "a year ago").startswith("Mixed")
+    calm = dict(z=0.0)
+    assert mx.verdict(y, calm, "a year ago") == "Better than a year ago."
+    assert mx.verdict(calm, w, "a year ago").startswith("Worse")
+    assert mx.verdict(calm, calm, "a year ago").startswith("No clear change")
+
+
+def test_the_cost_range_holds_the_point_estimate(df, last4):
+    sc = mx.source_scorecard(mx.window(df, 26), last4, 0.20).set_index("key")
+    assert ((sc["cost_low"] <= sc["cost_per_net_new_usable"]) & (sc["cost_per_net_new_usable"] <= sc["cost_high"])).all()
+    d = sc.loc["vendor_d"]
+    assert d["cost_high"] / d["cost_low"] > 2          # few net rows, so a wide range: do not read $0.80 as exact
+
+
+def test_withheld_requests_are_not_unmet_demand(last4):
+    t = mx.segment_table(last4, ["region"])
+    per_row = md.WEIGHT * 4 / last4["week"].nunique()
+    by_hand = sum(1 for u, w in zip(last4["usable"], last4["withheld"]) if not u and not w) * per_row
+    assert t["unmet_requests"].sum() == pytest.approx(by_hand)
+    assert np.allclose(t["unmet_requests"], t["lost_not_found"] + t["lost_not_complete"] + t["lost_not_correct"])
+
+
+def test_a_source_is_worth_more_when_its_nearest_overlap_goes():
+    """Leave-one-out holds for one removal at a time. Vendor D is cheap insurance against the loss of Vendor A."""
+    span = (md.WEEKS - 25, md.WEEKS)
+    base = mx.source_scorecard(md.simulate(weeks=span), md.simulate(weeks=span), 0.20).set_index("key")
+    gone = md.simulate({"coverage_boost": {("vendor_a", r): 0.0 for r in md.REGIONS}}, weeks=span)
+    without_a = mx.source_scorecard(gone, gone, 0.20).set_index("key")
+    assert without_a.loc["vendor_a", "net_new_usable"] == 0
+    assert without_a.loc["vendor_d", "cost_per_net_new_usable"] < 0.25 * base.loc["vendor_d", "cost_per_net_new_usable"]
