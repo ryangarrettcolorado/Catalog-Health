@@ -72,12 +72,18 @@ DEFINITIONS = [
     ),
     dict(
         pillar="Depth", metric="Complete rate",
-        short="Found contacts with a mapped title and the requested channel ÷ found contacts.",
-        definition=("Found contacts that have a title mapped to seniority and function, and the requested "
-                    "channel ÷ found contacts."),
-        measured_from="Catalog fields at the time of delivery.",
+        short="Found contacts with a mapped title and a valid value of the requested channel ÷ found contacts.",
+        definition=("Found contacts that have a title mapped to seniority and function, and a valid value of "
+                    "the requested channel ÷ found contacts. Valid: the value has the right form (an email "
+                    "with a real domain; a phone number with digits only, the right length and a real "
+                    "country and area code) and it is plausible in context (the right country for the "
+                    "person, not one number shared by hundreds of contacts). Rules check this on every "
+                    "record, at the feed gate and at delivery."),
+        measured_from=("Catalog fields at the time of delivery, after the validity and plausibility rules. "
+                       "This prototype simulates no badly formed values, so the rules change no number here."),
         trust="Counted",
-        blind_spot="A filled field is not a correct field.",
+        blind_spot=("Populated is not valid, and valid is not correct. A wrong value in a perfect format "
+                    "passes every rule. Rules raise the floor on every record; only the audit sets the level."),
     ),
     dict(
         pillar="Accuracy", metric="Correct rate",

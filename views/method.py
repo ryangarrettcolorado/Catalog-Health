@@ -56,7 +56,7 @@ def flow_diagram() -> str:
     nodes = [  # column, row, title, two caption lines, new?
         (0, 0, "Sources", "Contributors, web", "crawl, licensed feeds", False),
         (1, 0, "Ingest", "Tag source, lawful", "basis, licence terms", False),
-        (2, 0, "Feed gate", "Audit each new load.", "Pass it or hold it.", True),
+        (2, 0, "Feed gate", "Rules on every row,", "audit on a sample.", True),
         (3, 0, "Merge", "Newest independent", "observation wins", False),
         (4, 0, "Catalog", "Contacts and", "companies", False),
         (5, 0, "Suppression list", "Opt-outs, deletions:", "always withheld", False),
@@ -133,7 +133,7 @@ st.html(kit.figure(
     flow_diagram(),
     legend_html=kit.legend([("Dark boxes: the measurement that this design adds", "bg-inverse")]),
     note_text="The loop: the telemetry prices each source, the price drives sourcing, and the next audit shows whether the "
-              "decision worked. The feed gate uses the same audit method on a sample of each new load."))
+              "decision worked. The feed gate runs validity and plausibility rules on every record of a new load, then the same audit method on a sample. It passes the load or holds it."))
 
 # --------------------------------------------------------------------------
 # Guardrails

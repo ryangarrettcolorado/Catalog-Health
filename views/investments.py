@@ -84,9 +84,10 @@ st.html(kit.grid([
 # --------------------------------------------------------------------------
 e = kit.esc
 next_five = kit.bullets([
-    f"<strong>This week: gate every feed load with the audit before it can win the merge</strong> (${cost_gate:.2f}M a year). "
+    f"<strong>This week: gate every feed load with rules and the audit before it can win the merge</strong> (${cost_gate:.2f}M a year). "
     f"The Vendor C incident is open now. It has cost {incident_m:.2f}M usable contacts in 4 weeks, and it made APAC look "
-    "fresher while it did so. This is incident response first, and an investment second.",
+    "fresher while it did so. Rules check form and plausibility on every record; the audit checks a sample for truth. "
+    "This is incident response first, and an investment second.",
     f"<strong>Keep the blind audit running</strong> (${cost_audit:.2f}M a year). It is the only honest accuracy number in this "
     "prototype. Every item below depends on it.",
     f"<strong>Refresh by demand rank, the top 5% first.</strong> {ui.millions(top.net_new_usable)} net-new usable contacts a year "
